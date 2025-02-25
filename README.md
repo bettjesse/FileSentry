@@ -1,4 +1,4 @@
-# FileSentry 🐳👀
+# FileSentry 👀
 Real-time file monitoring with Docker support
 
 ## Features
