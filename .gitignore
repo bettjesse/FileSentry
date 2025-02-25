@@ -1,0 +1,4 @@
+echo "watcher/
+bin/
+*.log
+*.swp" > .gitignore
