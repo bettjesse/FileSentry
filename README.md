@@ -9,7 +9,7 @@ Real-time file monitoring with Docker support
 ## Quick Start
 ```bash
 # Clone repo
-git clone https://github.com/YOUR_USERNAME/FileSentry.git
+https://github.com/bettjesse/FileSentry.git
 cd FileSentry
 
 # Build & run
