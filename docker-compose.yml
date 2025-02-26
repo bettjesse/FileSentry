@@ -1,0 +1,9 @@
+version: '3'
+services:
+  filesentry:
+    build: .
+    volumes:
+      - ./watcher:/app/watcher
+      - ./rules.yaml:/app/rules.yaml
+    environment:
+      - PERMANENT_DELETE=false

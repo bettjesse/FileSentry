@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -9,13 +10,45 @@ import (
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v3"
 )
 
-var (
-	permanentDelete bool // Set via CLI flag
-)
+type Config struct {
+	Rules []Rule `yaml:"rules"`
+}
+type Rule struct {
+	Name    string   `yaml:"name"`
+	Watch   string   `yaml:"watch"`
+	Filters []Filter `yaml:"filters"`
+	Actions []Action `yaml:"actions"`
+}
+type Filter struct {
+	Extension string `yaml:"extension"`
+}
+type Action struct {
+	Move string `yaml:"move"`
+}
 
+func loadRules(path string) ([]Rule, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rules: %w", err)
+	}
+	// Parse into Config struct
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("invalid YAML format: %w", err)
+	}
+	return config.Rules, nil
+}
 func main() {
+
+	// Load rules from YAML file
+	rules, err := loadRules("rules.yaml")
+	if err != nil {
+		log.Fatal("Rule loading failed:", err)
+	}
+	log.Printf("Successfully loaded %d rules", len(rules))
 	// 1. Set up watcher with environment variable
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -57,8 +90,6 @@ func main() {
 			}
 		}
 	}()
-
-	// New: Add CLI flag
 
 	flag.Parse()
 

@@ -1,0 +1,8 @@
+
+rules:
+  - name: "Sort Images"
+    watch: "/app/watcher"
+    filters:
+      - extensions: [".jpg", ".png"]
+    actions:
+      - move: "/app/sorted/images"
