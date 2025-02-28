@@ -40,7 +40,7 @@ docker-compose up --build
 ```
 
 # Configurations 
-Creat a rules.yaml file 
+Create a rules.yaml file 
 
 ```
 rules:
