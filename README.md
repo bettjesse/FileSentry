@@ -1,7 +1,7 @@
 # FileSentry 🚀
 
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue)](https://golang.org/)
-[![Docker Build](https://img.shields.io/docker/pulls/jessebett/filesentry)](https://hub.docker.com/r/jessebett/filesentry)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Automated file management with Docker-powered workflows**
