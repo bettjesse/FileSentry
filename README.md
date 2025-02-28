@@ -37,6 +37,7 @@ mkdir -p data/{watcher,sorted}
 
 # Start container
 docker-compose up --build
+```
 
 # Configurations 
 Creat a rules.yaml file 
