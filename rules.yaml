@@ -1,8 +1,22 @@
-
 rules:
   - name: "Sort Images"
-    watch: "/app/watcher"
+    watch: "/app/data/watcher"
     filters:
-      - extensions: [".jpg", ".png"]
+      - extension: [".jpg", ".png"]
+      - exclude: "(\\.tmp$|~$)"  
     actions:
-      - move: "/app/sorted/images"
+      - move: "/app/data/sorted/images"
+
+  - name: "Organize PDFs"
+    watch: "/app/data/watcher" 
+    filters:
+      - extension: [".pdf"]
+    actions:
+      - move: "/app/data/sorted/docs"
+
+  - name: "Backup Text Files"
+    watch: "/app/data/watcher"
+    filters:
+      - extension: [".txt"]
+    actions:
+      - move: "/app/data/sorted/text_backups"

@@ -1,4 +1,10 @@
 echo "watcher/
+# Local data directories
+data/
+
+# Docker artifacts
+.env
+docker-compose.override.yml
 bin/
 *.log
 *.swp" > .gitignore

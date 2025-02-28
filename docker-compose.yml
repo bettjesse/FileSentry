@@ -1,9 +1,11 @@
-version: '3'
 services:
   filesentry:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-      - ./watcher:/app/watcher
+      - ./data:/app/data 
       - ./rules.yaml:/app/rules.yaml
     environment:
-      - PERMANENT_DELETE=false
+      DRY_RUN: "${DRY_RUN:-false}"
+      WATCH_DIR: "/app/data/watcher"
