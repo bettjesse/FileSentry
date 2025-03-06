@@ -3,12 +3,12 @@ rules:
     watch: "/app/data/watcher"
     filters:
       - extension: [".jpg", ".png"]
-      - exclude: "(\\.tmp$|~$)"  
+      - exclude: "(\\.tmp$|~$)"
     actions:
       - move: "/app/data/sorted/images"
 
   - name: "Organize PDFs"
-    watch: "/app/data/watcher" 
+    watch: "/app/data/watcher"
     filters:
       - extension: [".pdf"]
     actions:
@@ -20,3 +20,11 @@ rules:
       - extension: [".txt"]
     actions:
       - move: "/app/data/sorted/text_backups"
+
+  - name: "Backup to S3"
+    watch: "/app/data/watcher"
+    filters:
+      - extension: [".jpg", ".png"]
+    actions:
+      - move: "/app/data/sorted/images"
+      - upload_to_s3: "s3://your-bucket-name/images/{{timestamp}}/{{filename}}"

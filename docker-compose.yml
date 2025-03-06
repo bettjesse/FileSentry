@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data 
-      - ./rules.yaml:/app/rules.yaml
+      - ./data:/app/data
+      - ./configs:/app/configs  # Mount the entire configs folder
     environment:
       DRY_RUN: "${DRY_RUN:-false}"
       WATCH_DIR: "/app/data/watcher"
