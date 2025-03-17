@@ -38,7 +38,7 @@ cd FileSentry
 Create the unified data directory and its subdirectories on your host:
 mkdir -p files/{watcher,torrents,documents,sorted/{images,docs,text_backups},media/movies,archive/documents}
 
-
+```
 
 # Configurations 
 Create or update a rules.yaml file. For example:
@@ -100,7 +100,7 @@ rules:
 docker-compose up --build
 
 # Testing dry-run
-``
+```
 1) DRY_RUN=true docker-compose up --build
 ```
 # Testing functionality
