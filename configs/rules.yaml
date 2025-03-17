@@ -1,30 +1,50 @@
 rules:
   - name: "Sort Images"
-    watch: "/app/data/watcher"
+    watch: "/app/files/watcher"
     filters:
       - extension: [".jpg", ".png"]
       - exclude: "(\\.tmp$|~$)"
     actions:
-      - move: "/app/data/sorted/images"
+      - move: "/app/files/sorted/images"
 
   - name: "Organize PDFs"
-    watch: "/app/data/watcher"
+    watch: "/app/files/watcher"
     filters:
       - extension: [".pdf"]
     actions:
-      - move: "/app/data/sorted/docs"
+      - move: "/app/files/sorted/docs"
 
   - name: "Backup Text Files"
-    watch: "/app/data/watcher"
+    watch: "/app/files/watcher"
     filters:
       - extension: [".txt"]
     actions:
-      - move: "/app/data/sorted/text_backups"
+      - move: "/app/files/sorted/text_backups"
 
   - name: "Backup to S3"
-    watch: "/app/data/watcher"
+    watch: "/app/files/watcher"
     filters:
       - extension: [".jpg", ".png"]
     actions:
-      - move: "/app/data/sorted/images"
+      - move: "/app/files/sorted/images"
       - upload_to_s3: "s3://your-bucket-name/images/{{timestamp}}/{{filename}}"
+
+  - name: "Clean Torrent Names"
+    watch: "/app/files/torrents"
+    filters:
+      - extension: [".mkv", ".mp4"]
+        operator: "AND"
+        last_modified: "2h"  # Only process files modified within the last 2 hours
+    actions:
+      - regex: '\([^\)]+\)'
+        replace: ""
+      - move: "/app/files/media/movies"
+
+  - name: "Archive Old PDFs"
+    watch: "/app/files/documents"
+    filters:
+      - extension: [".pdf"]
+        last_modified: "720h"  # 30 days old
+        operator: "AND"
+    actions:
+      - move: "/app/files/archive/documents"

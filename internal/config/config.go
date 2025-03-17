@@ -22,12 +22,19 @@ type Rule struct {
 
 // Filter represents file filters (e.g., by extension).
 type Filter struct {
-	Extensions []string `yaml:"extension"`
+	Extensions   []string `yaml:"extension"` // Keep original YAML key "extension"
+	Exclude      string   `yaml:"exclude,omitempty"`
+	LastModified string   `yaml:"last_modified,omitempty"`
+	Size         string   `yaml:"size,omitempty"`
+	Operator     string   `yaml:"operator,omitempty"`
 }
 
 // Action represents actions to be performed on matching files.
 type Action struct {
-	Move string `yaml:"move"`
+	Move    string `yaml:"move,omitempty"`
+	Rename  string `yaml:"rename,omitempty"`
+	Regex   string `yaml:"regex,omitempty"`
+	Replace string `yaml:"replace,omitempty"`
 }
 
 // LoadRules reads the YAML file and returns the parsed rules.

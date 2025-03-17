@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,17 +17,68 @@ import (
 // DryRun is a package-level flag to simulate actions.
 var DryRun bool
 
-// MatchesFilters checks whether the file's extension matches any of the filters.
 func MatchesFilters(filePath string, filters []config.Filter) bool {
-	ext := filepath.Ext(filePath)
+	if len(filters) == 0 {
+		return true
+	}
+
+	result := true
 	for _, filter := range filters {
-		for _, ruleExt := range filter.Extensions {
-			if ext == ruleExt {
-				return true
+		match := true
+
+		// Extension check
+		if len(filter.Extensions) > 0 {
+			ext := strings.ToLower(filepath.Ext(filePath))
+			found := false
+			for _, e := range filter.Extensions {
+				if ext == strings.ToLower(e) {
+					found = true
+					break
+				}
+			}
+			match = match && found
+		}
+
+		// Exclude pattern
+		if filter.Exclude != "" {
+			re := regexp.MustCompile(filter.Exclude)
+			match = match && !re.MatchString(filepath.Base(filePath))
+		}
+
+		// Update the last_modified filter logic
+		if filter.LastModified != "" {
+			fileInfo, err := os.Stat(filePath)
+			if err != nil {
+				log.Printf("ERROR: Could not get file info for %s: %v", filePath, err)
+				return false
+			}
+
+			duration, err := time.ParseDuration(filter.LastModified)
+			if err != nil {
+				log.Printf("ERROR: Invalid duration format %s: %v", filter.LastModified, err)
+				return false
+			}
+
+			fileAge := time.Since(fileInfo.ModTime())
+
+			switch filter.Operator {
+			case "OLDER_THAN":
+				match = match && (fileAge > duration)
+			case "WITHIN":
+				match = match && (fileAge < duration)
+			default: // Default to "WITHIN" if operator not specified
+				match = match && (fileAge < duration)
 			}
 		}
+		// Combine results using operator
+		if filter.Operator == "OR" {
+			result = result || match
+		} else { // default AND
+			result = result && match
+		}
 	}
-	return false
+
+	return result
 }
 
 // IsTrashPath checks common trash paths.
@@ -46,19 +98,52 @@ func HandleEvent(event fsnotify.Event, rules []config.Rule) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	// Check if the file exists before processing
+	if _, err := os.Stat(event.Name); os.IsNotExist(err) {
+		log.Printf("Skipping event for non-existent file: %s", event.Name)
+		return
+	}
+
 	for _, rule := range rules {
 		if MatchesFilters(event.Name, rule.Filters) {
 			for _, action := range rule.Actions {
+				// Handle file renaming first.
+				if action.Regex != "" {
+					newPath, err := actions.RenameFileOrDir(event.Name, action.Regex, action.Replace)
+					if err != nil {
+						log.Printf("ERROR renaming: %v", err)
+						continue
+					}
+					event.Name = newPath
+					log.Printf("Renamed to: %s", newPath)
+
+					// If it's a directory, process its contents.
+					if info, err := os.Stat(newPath); err == nil && info.IsDir() {
+						log.Printf("Processing directory contents: %s", newPath)
+						filepath.Walk(newPath, func(path string, info os.FileInfo, err error) error {
+							if !info.IsDir() {
+								HandleEvent(fsnotify.Event{
+									Name: path,
+									Op:   fsnotify.Create,
+								}, rules)
+							}
+							return nil
+						})
+					}
+				}
+
 				if action.Move != "" {
 					if DryRun {
 						log.Printf("DRY-RUN: Moving %s to %s", event.Name, action.Move)
 					} else {
 						if err := actions.MoveFile(event.Name, action.Move); err != nil {
-							log.Printf("ERROR: %v", err)
+							log.Printf("ERROR moving file: %v", err)
 						}
 					}
 				}
 			}
+			// Once a matching rule is processed, break out to avoid duplicate processing.
+			break
 		}
 	}
 
@@ -91,14 +176,20 @@ func StartWatcher(rules []config.Rule, watchDir string) error {
 	}
 	defer watcher.Close()
 
-	if _, err := os.Stat(watchDir); os.IsNotExist(err) {
-		return err
+	// Collect all unique watch paths from rules
+	watchDirs := make(map[string]struct{})
+	for _, rule := range rules {
+		watchDirs[rule.Watch] = struct{}{}
 	}
 
-	if err := watcher.Add(watchDir); err != nil {
-		return err
+	// Add all directories to watcher
+	for dir := range watchDirs {
+		if err := watcher.Add(dir); err != nil {
+			log.Printf("WARNING: Couldn't watch %s: %v", dir, err)
+		} else {
+			log.Printf("Now watching: %s", dir)
+		}
 	}
-	log.Printf("Watching directory: %s", watchDir)
 
 	// Main event loop.
 	for {

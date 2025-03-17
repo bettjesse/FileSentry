@@ -4,27 +4,53 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"syscall"
 	"time"
 )
 
-// SameFilesystem checks if source and destination are on the same filesystem.
-func SameFilesystem(source, dest string) (bool, error) {
-	var srcStat syscall.Statfs_t
-	if err := syscall.Statfs(filepath.Dir(source), &srcStat); err != nil {
+// SameFilesystem checks if source and destination are on the same filesystem
+// by comparing the device IDs of the source file and destination directory.
+func SameFilesystem(source, destDir string) (bool, error) {
+	srcInfo, err := os.Stat(source)
+	if err != nil {
 		return false, fmt.Errorf("failed to stat source: %w", err)
 	}
-	var destStat syscall.Statfs_t
-	if err := syscall.Statfs(filepath.Dir(dest), &destStat); err != nil {
+
+	destInfo, err := os.Stat(destDir)
+	if err != nil {
 		return false, fmt.Errorf("failed to stat destination: %w", err)
 	}
-	return srcStat.Fsid == destStat.Fsid, nil
+
+	srcStat, ok := srcInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false, fmt.Errorf("failed to get raw stat for source")
+	}
+
+	destStat, ok := destInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false, fmt.Errorf("failed to get raw stat for destination")
+	}
+
+	return srcStat.Dev == destStat.Dev, nil
 }
 
-// CopyFile performs a robust file copy preserving permissions and timestamps.
+// RenameFile renames a file based on a regex pattern.
+func RenameFile(source, pattern, replacement string) (string, error) {
+	base := filepath.Base(source)
+	dir := filepath.Dir(source)
+
+	re := regexp.MustCompile(pattern)
+	newName := re.ReplaceAllString(base, replacement)
+
+	newPath := filepath.Join(dir, newName)
+	err := os.Rename(source, newPath)
+	return newPath, err
+}
+
+// CopyFile performs a file copy preserving permissions and timestamps.
 func CopyFile(src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
@@ -36,6 +62,7 @@ func CopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
+
 	dest, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode())
 	if err != nil {
 		return err
@@ -46,31 +73,47 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 
-	if err := os.Chtimes(dst, info.ModTime(), info.ModTime()); err != nil {
+	// Preserve the modification time.
+	if err := os.Chtimes(dst, time.Now(), info.ModTime()); err != nil {
 		return err
 	}
 	return nil
 }
 
+// RenameFileOrDir handles renaming for both files and directories.
+func RenameFileOrDir(source, pattern, replacement string) (string, error) {
+	base := filepath.Base(source)
+	dir := filepath.Dir(source)
+
+	re := regexp.MustCompile(pattern)
+	newName := re.ReplaceAllString(base, replacement)
+	newPath := filepath.Join(dir, newName)
+
+	// Check if source exists.
+	if _, err := os.Stat(source); os.IsNotExist(err) {
+		return "", fmt.Errorf("source path does not exist: %s", source)
+	}
+
+	err := os.Rename(source, newPath)
+	if err != nil {
+		return "", fmt.Errorf("rename failed: %w", err)
+	}
+
+	return newPath, nil
+}
+
 // MoveFile moves a file from source to destination directory.
-// It uses rename when possible or falls back to copy+delete.
+// It uses a fast os.Rename if the files are on the same filesystem,
+// otherwise it falls back to copying the file and then deleting the source.
 func MoveFile(source, destDir string) error {
 	log.Printf("MOVING: %s → %s", source, destDir)
-	maxRetries := 5
-	retryDelay := 200 * time.Millisecond
 
-	// Retry if the file vanishes momentarily.
-	for i := 0; i < maxRetries; i++ {
-		if _, err := os.Stat(source); os.IsNotExist(err) {
-			time.Sleep(retryDelay + time.Duration(rand.Intn(50))*time.Millisecond)
-			continue
-		}
-		break
-	}
+	// Check if source file exists.
 	if _, err := os.Stat(source); os.IsNotExist(err) {
-		return fmt.Errorf("file vanished after retries: %s", source)
+		return fmt.Errorf("file not found: %s", source)
 	}
 
+	// Ensure destination directory exists.
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -82,9 +125,11 @@ func MoveFile(source, destDir string) error {
 	}
 
 	if sameFS {
+		// Fast rename when on the same filesystem.
 		return os.Rename(source, destPath)
 	}
 
+	// Fall back to copy + delete when on different filesystems.
 	if err := CopyFile(source, destPath); err != nil {
 		return fmt.Errorf("copy failed: %w", err)
 	}
@@ -94,6 +139,7 @@ func MoveFile(source, destDir string) error {
 	}
 
 	if err := os.Remove(source); err != nil {
+		// Clean up the destination file if deletion fails.
 		os.Remove(destPath)
 		return fmt.Errorf("failed to remove original: %w", err)
 	}

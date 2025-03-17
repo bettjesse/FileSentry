@@ -1,11 +1,13 @@
+
 services:
   filesentry:
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data
-      - ./configs:/app/configs  # Mount the entire configs folder
+      - ./files:/app/files         # Unified data directory
+      - ./configs:/app/configs      # Configuration files
     environment:
       DRY_RUN: "${DRY_RUN:-false}"
-      WATCH_DIR: "/app/data/watcher"
+      WATCH_DIR: "/app/files/watcher"
+    user: "1000:1000"              # Run as non-root user
