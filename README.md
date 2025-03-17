@@ -37,6 +37,10 @@ mkdir -p data/{watcher,sorted}
 
 # Start container
 docker-compose up --build
+
+# Testing dry-run
+DRY_RUN=true docker-compose up --build
+
 ```
 
 # Configurations 
